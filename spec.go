@@ -7,10 +7,10 @@ import (
 // Specification returns the connector's specification.
 func Specification() sdk.Specification {
 	return sdk.Specification{
-		Name:        "<connector name>",
-		Summary:     "<describe your connector>",
-		Description: "<describe your connector in detail>",
+		Name:        "benthos",
+		Summary:     "Conduit wrapper for Benthos.",
+		Description: "Conduit wrapper for Benthos inputs, processors and outputs.",
 		Version:     "v0.1.0",
-		Author:      "<your name>",
+		Author:      "Meroxa, Inc.",
 	}
 }
