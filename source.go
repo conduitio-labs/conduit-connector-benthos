@@ -3,9 +3,11 @@ package connector
 import (
 	"context"
 	"fmt"
+	_ "github.com/benthosdev/benthos/v4/public/components/all"
 	"github.com/benthosdev/benthos/v4/public/service"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
+	"time"
 )
 
 type Source struct {
@@ -67,6 +69,10 @@ func (s *Source) Open(ctx context.Context, pos sdk.Position) error {
 	if err != nil {
 		return fmt.Errorf("failed parsing Benthos YAML config: %w", err)
 	}
+	builder.AddOutputYAML(`
+label: "testoutput"
+conduit_source_output: {}
+`)
 
 	// Build a stream with our configured components.
 	stream, err := builder.Build()
@@ -82,6 +88,7 @@ func (s *Source) Open(ctx context.Context, pos sdk.Position) error {
 
 	go func() {
 		err = stream.Run(benthosCtx)
+		sdk.Logger(ctx).Err(err).Msg("benthos: stream done running")
 		s.errC <- err
 	}()
 
@@ -89,33 +96,46 @@ func (s *Source) Open(ctx context.Context, pos sdk.Position) error {
 }
 
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
+	sdk.Logger(ctx).Info().Msg("benthos: read")
 	select {
 	case m := <-s.messages:
-		return toRecord(m)
+		return s.toRecord(m)
+	case <-time.After(10 * time.Second):
+		return sdk.Record{}, sdk.ErrBackoffRetry
 	case err := <-s.errC:
-		return sdk.Record{}, err
+		sdk.Logger(ctx).Err(err).Msg("benthos read: got error")
+		return sdk.Record{}, fmt.Errorf("got error from benthos stream: %w", err)
 	}
 }
 
-func toRecord(m *service.Message) (sdk.Record, error) {
+func (s *Source) toRecord(m *service.Message) (sdk.Record, error) {
 	payload, err := m.AsBytes()
 	if err != nil {
 		return sdk.Record{}, fmt.Errorf("failed converting Benthos message to bytes: %w", err)
 	}
+	meta := make(sdk.Metadata)
+	m.MetaWalk(func(k string, v string) error {
+		meta[k] = v
+		return nil
+	})
 	return sdk.SourceUtil{}.NewRecordCreate(
 		sdk.Position(uuid.NewString()),
-		make(sdk.Metadata),
+		meta,
 		sdk.RawData(uuid.NewString()),
 		sdk.RawData(payload),
 	), nil
 }
 
 func (s *Source) Ack(ctx context.Context, position sdk.Position) error {
+	sdk.Logger(ctx).Info().Msg("benthos: ack")
 	return nil
 }
 
 func (s *Source) Teardown(ctx context.Context) error {
-	s.cancelBenthos()
+	sdk.Logger(ctx).Info().Msg("benthos teardown")
+	if s.cancelBenthos != nil {
+		s.cancelBenthos()
+	}
 	return nil
 }
 
@@ -123,14 +143,17 @@ func (s *Source) Teardown(ctx context.Context) error {
 // Implement service.Output from Benthos
 
 func (s *Source) Connect(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("benthos close")
 	return nil
 }
 
 func (s *Source) Write(ctx context.Context, message *service.Message) error {
+	sdk.Logger(ctx).Info().Msg("benthos write")
 	s.messages <- message
 	return nil
 }
 
 func (s *Source) Close(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("benthos close")
 	return nil
 }

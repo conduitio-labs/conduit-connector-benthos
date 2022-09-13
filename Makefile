@@ -1,7 +1,7 @@
 .PHONY: build test
 
 build:
-	go build -o conduit-connector-benthos cmd/benthos/main.go
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o conduit-connector-benthos cmd/benthos/main.go
 	cp conduit-connector-benthos /home/haris/projects/conduitio/conduit/connectors/
 
 test:
