@@ -15,13 +15,7 @@ func TestWrite(t *testing.T) {
 	d := NewDestination()
 	ctx := context.Background()
 	cfg := map[string]string{
-		"benthos.yaml": `
-output:
-  label: "benthos_output_file"
-  file:
-    path: "/home/haris/projects/other/conduit-utils/benthos-out.txt"
-    codec: lines
-`}
+		"benthos.yaml": benthosRMQConfig()}
 
 	d.Configure(ctx, cfg)
 	d.Open(ctx)
@@ -47,4 +41,25 @@ output:
 	d.Teardown(ctx)
 	time.Sleep(2 * time.Second)
 
+}
+
+func benthosFileConfig() string {
+	return `
+output:
+  label: "benthos_output_file" 
+  file:
+    path: "/home/haris/projects/other/conduit-utils/benthos-out.txt"
+    codec: lines
+`
+}
+
+func benthosRMQConfig() string {
+	return `
+output:
+  label: "benthos_output_rmq"
+  amqp_0_9:
+    urls: ["amqp://localhost"]
+    exchange: "demo-exchange"
+    max_in_flight: 1
+`
 }
