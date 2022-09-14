@@ -2,7 +2,6 @@ package benthos
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/benthosdev/benthos/v4/public/service"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -175,10 +174,8 @@ func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, err
 func (d *Destination) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("teardown started...")
 
-	if d.errC != nil {
-		d.errC <- batchError{
-			err: errors.New("error: teardown called"),
-		}
+	if d.cancelBenthos != nil {
+		d.cancelBenthos()
 	}
 
 	sdk.Logger(ctx).Info().Msg("teardown done!")
