@@ -1,43 +1,50 @@
-package connector_test
+package benthos
 
 import (
 	"context"
-	"strings"
+	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/google/uuid"
+	"github.com/matryer/is"
 	"testing"
-
-	connector "github.com/conduitio-labs/conduit-connector-benthos"
+	"time"
 )
 
-func TestConfigureDestination_FailsWhenConfigEmpty(t *testing.T) {
-	con := connector.Destination{}
-	err := con.Configure(context.Background(), make(map[string]string))
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
+func TestWrite(t *testing.T) {
+	is := is.New(t)
 
-	if strings.HasPrefix(err.Error(), "config is invalid:") {
-		t.Errorf("expected error to be about missing config, got %v", err)
-	}
-}
+	d := NewDestination()
+	ctx := context.Background()
+	cfg := map[string]string{
+		"benthos.yaml": `
+output:
+  label: "benthos_output_file"
+  file:
+    path: "/home/haris/projects/other/conduit-utils/benthos-out.txt"
+    codec: lines
+`}
 
-func TestConfigureDestination_FailsWhenConfigInvalid(t *testing.T) {
-	con := connector.Destination{}
-	err := con.Configure(context.Background(), map[string]string{"foobar": "foobar"})
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
+	d.Configure(ctx, cfg)
+	d.Open(ctx)
 
-	}
+	go func() {
+		for {
+			records := []sdk.Record{
+				sdk.SourceUtil{}.NewRecordCreate(
+					sdk.Position(uuid.NewString()),
+					make(sdk.Metadata),
+					sdk.RawData(uuid.NewString()),
+					sdk.RawData(uuid.NewString()),
+				),
+			}
+			n, err := d.Write(ctx, records)
+			is.NoErr(err)
+			is.Equal(n, len(records))
+			time.Sleep(time.Second)
+		}
+	}()
 
-	if strings.HasPrefix(err.Error(), "config is missing:") {
-		t.Errorf("expected error to be about invalid config, got %v", err)
-	}
-}
+	time.Sleep(5 * time.Second)
+	d.Teardown(ctx)
+	time.Sleep(2 * time.Second)
 
-func TestTeardown_NoOpen(t *testing.T) {
-	con := connector.NewDestination()
-	err := con.Teardown(context.Background())
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-
-	}
 }

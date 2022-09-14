@@ -1,7 +1,8 @@
-package connector
+package benthos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/benthosdev/benthos/v4/public/service"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -28,18 +29,33 @@ type batchError struct {
 	written int
 }
 
+func NewDestination() sdk.Destination {
+	return &Destination{
+		records: make(chan sdk.Record),
+		done:    make(chan struct{}),
+	}
+}
+
 func (d *Destination) Connect(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (d *Destination) Read(ctx context.Context) (*service.Message, service.AckFunc, error) {
+	sdk.Logger(ctx).Info().Msgf("reading record...")
 	rec := <-d.records
+	sdk.Logger(ctx).Info().Msgf("got a record to read")
+
 	return d.toMessage(rec),
 		func(ctx context.Context, err error) error {
+			sdk.Logger(ctx).Info().Msgf("service.AckFunc called")
 			d.mu.Lock()
 
 			if err != nil {
+				if d.errC == nil {
+					sdk.Logger(ctx).Info().Msg("Read: initializing error channel")
+					d.errC = make(chan batchError)
+				}
+
 				d.errC <- batchError{
 					err:     err,
 					written: d.inFlight,
@@ -59,12 +75,7 @@ func (d *Destination) Read(ctx context.Context) (*service.Message, service.AckFu
 }
 
 func (d *Destination) Close(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func NewDestination() sdk.Destination {
-	return &Destination{}
+	return nil
 }
 
 func (d *Destination) Parameters() map[string]sdk.Parameter {
@@ -88,8 +99,10 @@ func (d *Destination) Configure(ctx context.Context, cfg map[string]string) erro
 }
 
 func (d *Destination) Open(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msgf("opening destination...")
 	builder := service.NewStreamBuilder()
 	builder.DisableLinting()
+
 	// Register our new output, which doesn't require a config schema.
 	err := service.RegisterInput(
 		"conduit_destination_input",
@@ -106,7 +119,7 @@ func (d *Destination) Open(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed parsing Benthos YAML config: %w", err)
 	}
-	builder.AddOutputYAML(`
+	builder.AddInputYAML(`
 label: "label_conduit_destination_input"
 conduit_destination_input: {}
 `)
@@ -124,6 +137,7 @@ conduit_destination_input: {}
 	d.cancelBenthos = cancelBenthos
 
 	go func() {
+		sdk.Logger(ctx).Info().Msgf("running stream...")
 		err = stream.Run(benthosCtx)
 		sdk.Logger(ctx).Err(err).Msg("benthos: stream done running")
 		d.errC <- batchError{err: err}
@@ -133,20 +147,42 @@ conduit_destination_input: {}
 }
 
 func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, error) {
+	sdk.Logger(ctx).Info().Msgf("writing %v records...", len(records))
 	d.inFlight = len(records)
 	for _, r := range records {
+		sdk.Logger(ctx).Info().Msg("Write: putting record into channel")
 		d.records <- r
 	}
 
+	if d.errC == nil {
+		sdk.Logger(ctx).Info().Msg("Write: initializing error channel")
+		d.errC = make(chan batchError)
+	}
+
+	sdk.Logger(ctx).Info().Msg("Write: select")
 	select {
 	case <-d.done:
+		sdk.Logger(ctx).Info().Msgf("done writing records")
 		return len(records), nil
 	case err := <-d.errC:
+		sdk.Logger(ctx).Err(err.err).
+			Int("inFlight", d.inFlight).
+			Msgf("error while writing records")
 		return len(records) - d.inFlight, err.err
 	}
 }
 
 func (d *Destination) Teardown(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("teardown started...")
+
+	if d.errC != nil {
+		d.errC <- batchError{
+			err: errors.New("error: teardown called"),
+		}
+	}
+
+	sdk.Logger(ctx).Info().Msg("teardown done!")
+
 	return nil
 }
 

@@ -1,2 +1,1 @@
-package connector
-
+package benthos

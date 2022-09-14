@@ -1,4 +1,4 @@
-package connector
+package benthos
 
 import (
 	sdk "github.com/conduitio/conduit-connector-sdk"

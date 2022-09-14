@@ -1,15 +1,13 @@
-package connector_test
+package benthos
 
 import (
 	"context"
 	"strings"
 	"testing"
-
-	connector "github.com/conduitio-labs/conduit-connector-benthos"
 )
 
 func TestConfigureSource_FailsWhenConfigEmpty(t *testing.T) {
-	con := connector.Source{}
+	con := Source{}
 	err := con.Configure(context.Background(), make(map[string]string))
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -22,7 +20,7 @@ func TestConfigureSource_FailsWhenConfigEmpty(t *testing.T) {
 }
 
 func TestConfigureSource_FailsWhenConfigInvalid(t *testing.T) {
-	con := connector.Source{}
+	con := Source{}
 	err := con.Configure(context.Background(), map[string]string{"foobar": "foobar"})
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -35,7 +33,7 @@ func TestConfigureSource_FailsWhenConfigInvalid(t *testing.T) {
 }
 
 func TestTeardownSource_NoOpen(t *testing.T) {
-	con := connector.NewSource()
+	con := NewSource()
 	err := con.Teardown(context.Background())
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
