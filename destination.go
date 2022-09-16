@@ -40,18 +40,18 @@ func (d *Destination) Connect(ctx context.Context) error {
 }
 
 func (d *Destination) Read(ctx context.Context) (*service.Message, service.AckFunc, error) {
-	sdk.Logger(ctx).Info().Msgf("reading record...")
+	sdk.Logger(ctx).Debug().Msgf("reading record...")
 	rec := <-d.records
-	sdk.Logger(ctx).Info().Msgf("got a record to read")
+	sdk.Logger(ctx).Debug().Msgf("got a record to read")
 
 	return d.toMessage(rec),
 		func(ctx context.Context, err error) error {
-			sdk.Logger(ctx).Info().Msgf("service.AckFunc called")
+			sdk.Logger(ctx).Debug().Msgf("service.AckFunc called")
 			d.mu.Lock()
 
 			if err != nil {
 				if d.errC == nil {
-					sdk.Logger(ctx).Info().Msg("Read: initializing error channel")
+					sdk.Logger(ctx).Debug().Msg("Read: initializing error channel")
 					d.errC = make(chan batchError)
 				}
 
@@ -88,7 +88,7 @@ func (d *Destination) Parameters() map[string]sdk.Parameter {
 }
 
 func (d *Destination) Configure(ctx context.Context, cfg map[string]string) error {
-	sdk.Logger(ctx).Info().Msg("Configuring a Destination connector...")
+	sdk.Logger(ctx).Debug().Msg("Configuring a Destination connector...")
 	config, err := ParseDestinationConfig(cfg)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func (d *Destination) Configure(ctx context.Context, cfg map[string]string) erro
 }
 
 func (d *Destination) Open(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msgf("opening destination...")
+	sdk.Logger(ctx).Debug().Msgf("opening destination...")
 	builder := service.NewStreamBuilder()
 	builder.DisableLinting()
 
@@ -136,7 +136,7 @@ conduit_destination_input: {}
 	d.cancelBenthos = cancelBenthos
 
 	go func() {
-		sdk.Logger(ctx).Info().Msgf("running stream...")
+		sdk.Logger(ctx).Debug().Msgf("running stream...")
 		err = stream.Run(benthosCtx)
 		sdk.Logger(ctx).Err(err).Msg("benthos: stream done running")
 		d.errC <- batchError{err: err}
@@ -146,22 +146,22 @@ conduit_destination_input: {}
 }
 
 func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, error) {
-	sdk.Logger(ctx).Info().Msgf("writing %v records...", len(records))
+	sdk.Logger(ctx).Debug().Msgf("writing %v records...", len(records))
 	d.inFlight = len(records)
 	for _, r := range records {
-		sdk.Logger(ctx).Info().Msg("Write: putting record into channel")
+		sdk.Logger(ctx).Debug().Msg("Write: putting record into channel")
 		d.records <- r
 	}
 
 	if d.errC == nil {
-		sdk.Logger(ctx).Info().Msg("Write: initializing error channel")
+		sdk.Logger(ctx).Debug().Msg("Write: initializing error channel")
 		d.errC = make(chan batchError)
 	}
 
-	sdk.Logger(ctx).Info().Msg("Write: select")
+	sdk.Logger(ctx).Debug().Msg("Write: select")
 	select {
 	case <-d.done:
-		sdk.Logger(ctx).Info().Msgf("done writing records")
+		sdk.Logger(ctx).Debug().Msgf("done writing records")
 		return len(records), nil
 	case err := <-d.errC:
 		sdk.Logger(ctx).Err(err.err).
@@ -172,13 +172,13 @@ func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, err
 }
 
 func (d *Destination) Teardown(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("teardown started...")
+	sdk.Logger(ctx).Debug().Msg("teardown started...")
 
 	if d.cancelBenthos != nil {
 		d.cancelBenthos()
 	}
 
-	sdk.Logger(ctx).Info().Msg("teardown done!")
+	sdk.Logger(ctx).Debug().Msg("teardown done!")
 
 	return nil
 }

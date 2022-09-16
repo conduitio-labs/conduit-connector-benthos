@@ -40,7 +40,7 @@ func (s *Source) Parameters() map[string]sdk.Parameter {
 }
 
 func (s *Source) Configure(ctx context.Context, cfg map[string]string) error {
-	sdk.Logger(ctx).Info().Msg("Configuring a Source Connector...")
+	sdk.Logger(ctx).Debug().Msg("Configuring a Source Connector...")
 	config, err := ParseSourceConfig(cfg)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ conduit_source_output: {}
 }
 
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
-	sdk.Logger(ctx).Info().Msg("benthos: read")
+	sdk.Logger(ctx).Debug().Msg("benthos: read")
 	select {
 	case m := <-s.messages:
 		return s.toRecord(m)
@@ -127,12 +127,12 @@ func (s *Source) toRecord(m *service.Message) (sdk.Record, error) {
 }
 
 func (s *Source) Ack(ctx context.Context, position sdk.Position) error {
-	sdk.Logger(ctx).Info().Msg("benthos: ack")
+	sdk.Logger(ctx).Debug().Msg("benthos: ack")
 	return nil
 }
 
 func (s *Source) Teardown(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("benthos teardown")
+	sdk.Logger(ctx).Debug().Msg("benthos teardown")
 	if s.cancelBenthos != nil {
 		s.cancelBenthos()
 	}
@@ -143,17 +143,17 @@ func (s *Source) Teardown(ctx context.Context) error {
 // Implement service.Output from Benthos
 
 func (s *Source) Connect(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("benthos close")
+	sdk.Logger(ctx).Debug().Msg("benthos close")
 	return nil
 }
 
 func (s *Source) Write(ctx context.Context, message *service.Message) error {
-	sdk.Logger(ctx).Info().Msg("benthos write")
+	sdk.Logger(ctx).Debug().Msg("benthos write")
 	s.messages <- message
 	return nil
 }
 
 func (s *Source) Close(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("benthos close")
+	sdk.Logger(ctx).Debug().Msg("benthos close")
 	return nil
 }
