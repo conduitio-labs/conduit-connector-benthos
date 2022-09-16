@@ -74,6 +74,10 @@ label: "testoutput"
 conduit_source_output: {}
 `)
 
+	builder.SetLoggerYAML(`
+logger:
+  level: INFO
+`)
 	// Build a stream with our configured components.
 	stream, err := builder.Build()
 	if err != nil {
