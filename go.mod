@@ -1,6 +1,6 @@
 module github.com/conduitio-labs/conduit-connector-benthos
 
-go 1.18
+go 1.21
 
 require (
 	github.com/benthosdev/benthos/v4 v4.6.0
